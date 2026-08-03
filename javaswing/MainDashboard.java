@@ -1454,11 +1454,11 @@ public class MainDashboard extends JFrame {
 		panel.add(createLinkRow("Email:", "raiyanc01@gmail.com", "mailto:raiyanc01@gmail.com"), gbc);
 
 		gbc.gridy++;
-		panel.add(createLinkRow("GitHub:", "github.com/raiyanchoudhury", "https://github.com/raiyanchoudhury"), gbc);
+		panel.add(createLinkRow("GitHub:", "https://github.com/Raiyanc01", "https://github.com/Raiyanc01"), gbc);
 
 		gbc.gridy++;
-		panel.add(createLinkRow("LinkedIn:", "linkedin.com/in/raiyanchoudhury",
-				"https://linkedin.com/in/raiyanchoudhury"), gbc);
+		panel.add(createLinkRow("LinkedIn:", "https://www.linkedin.com/in/raiyan-choudhury-376404309/",
+				"https://www.linkedin.com/in/raiyan-choudhury-376404309/"), gbc);
 
 		gbc.gridy++;
 		panel.add(createLinkRow("Facebook:", "facebook.com/raiyanchoudhury", "https://facebook.com/raiyanchoudhury17"),
