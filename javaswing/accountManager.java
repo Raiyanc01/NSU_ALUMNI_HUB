@@ -39,9 +39,9 @@ public class accountManager {
             try {
                 file.createNewFile();
                 Files.write(file.toPath(), (HEADER + System.lineSeparator()).getBytes());
-                registerUser("Raiyan", "1234", "Raiyan", "Ahmed", "+8801700000000", "raiyan@northsouth.edu",
-                        "Spring 2022", "2210000000", "ECE", "CSE", "Software Engineer", "Junior Developer", "Tech Corp",
-                        "Bangladesh", "What is your primary school name?", "Dhaka College", "");
+                registerUser("Raiyan", "1234", "Raiyan", "Choudhury", "+8801611177123", "raiyan.choudhury.253@northsouth.edu",
+                        "FALL 2025", "2531141042", "ECE", "CSE", "Software Engineer", "Junior Developer", "RC Tech Crop.",
+                        "Bangladesh", "What is your primary school name?", "Gregory", "");
             } catch (IOException e) {
                 System.err.println("Error creating CSV storage: " + e.getMessage());
             }
