@@ -51,6 +51,7 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -62,14 +63,11 @@ public class MainDashboard extends JFrame {
 	private CardLayout cardLayout;
 	private JPanel mainContentPanel;
 
-	// In-memory events data structure: {Title, Date, Location, Organizer,
-	// Description}
 	private List<String[]> eventsList = new ArrayList<>();
 
 	public MainDashboard(String username) {
 		this.currentUsername = username;
 
-		// Seed sample events
 		eventsList.add(new String[] { "Annual Alumni Reunion 2026", "2026-12-20 | 06:00 PM", "NSU Plaza", "Admin",
 				"Join us for the grand annual reunion with networking, dinner, and cultural performances." });
 		eventsList.add(new String[] { "Tech Career & Networking Fair", "2026-09-15 | 10:00 AM", "AUDI801", "Admin",
@@ -81,7 +79,6 @@ public class MainDashboard extends JFrame {
 		setLocationRelativeTo(null);
 		setLayout(new BorderLayout());
 
-		// --- TOP HEADER BAR ---
 		JPanel headerPanel = new JPanel(new BorderLayout());
 		headerPanel.setBackground(new Color(24, 119, 242));
 		headerPanel.setPreferredSize(new Dimension(getWidth(), 55));
@@ -111,10 +108,8 @@ public class MainDashboard extends JFrame {
 		headerPanel.add(rightHeader, BorderLayout.EAST);
 		add(headerPanel, BorderLayout.NORTH);
 
-		// --- LEFT SIDEBAR NAVIGATION ---
 		JPanel sidebar = new JPanel();
 		sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
-		sidebar.setBackground(new Color(240, 242, 245));
 		sidebar.setPreferredSize(new Dimension(200, getHeight()));
 		sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Color.LIGHT_GRAY));
 
@@ -127,6 +122,12 @@ public class MainDashboard extends JFrame {
 		JButton btnCvUpload = createNavButton("📄 CV / Resume Upload");
 		JButton btnContactUs = createNavButton("📞 Contact Us");
 
+		JButton btnThemeToggle = createNavButton(" Dark Mode");
+		btnThemeToggle.addActionListener(e -> {
+			ThemeManager.toggleTheme(this);
+			btnThemeToggle.setText(ThemeManager.isDarkMode() ? " Light Mode" : " Dark Mode");
+		});
+
 		sidebar.add(Box.createVerticalStrut(15));
 		sidebar.add(btnProfile);
 		sidebar.add(btnFeed);
@@ -136,8 +137,8 @@ public class MainDashboard extends JFrame {
 		sidebar.add(btnNotices);
 		sidebar.add(btnCvUpload);
 		sidebar.add(btnContactUs);
+		sidebar.add(btnThemeToggle);
 
-		// ADMIN PANEL BUTTON (Visible only to Admin)
 		boolean isAdmin = "Admin".equalsIgnoreCase(currentUsername.trim());
 		JButton btnAdmin = null;
 		if (isAdmin) {
@@ -150,7 +151,6 @@ public class MainDashboard extends JFrame {
 
 		add(sidebar, BorderLayout.WEST);
 
-		// --- MAIN CONTENT AREA (CardLayout) ---
 		cardLayout = new CardLayout();
 		mainContentPanel = new JPanel(cardLayout);
 
@@ -169,21 +169,34 @@ public class MainDashboard extends JFrame {
 
 		add(mainContentPanel, BorderLayout.CENTER);
 
-		// Navigation Actions
-		btnProfile.addActionListener(e -> cardLayout.show(mainContentPanel, "PROFILE"));
-		btnFeed.addActionListener(e -> cardLayout.show(mainContentPanel, "FEED"));
-		btnEvents.addActionListener(e -> cardLayout.show(mainContentPanel, "EVENTS"));
-		btnMembers.addActionListener(e -> cardLayout.show(mainContentPanel, "MEMBERS"));
-		btnMessages.addActionListener(e -> cardLayout.show(mainContentPanel, "MESSAGES"));
+		btnProfile.addActionListener(e -> showPanel("PROFILE"));
+		btnFeed.addActionListener(e -> showPanel("FEED"));
+		btnEvents.addActionListener(e -> showPanel("EVENTS"));
+		btnMembers.addActionListener(e -> showPanel("MEMBERS"));
+		btnMessages.addActionListener(e -> showPanel("MESSAGES"));
 		btnNotices.addActionListener(e -> {
 			mainContentPanel.add(createNoticeBoardPanel(), "NOTICES");
-			cardLayout.show(mainContentPanel, "NOTICES");
+			showPanel("NOTICES");
 		});
-		btnCvUpload.addActionListener(e -> cardLayout.show(mainContentPanel, "CV_UPLOAD"));
-		btnContactUs.addActionListener(e -> cardLayout.show(mainContentPanel, "CONTACT_US"));
+		btnCvUpload.addActionListener(e -> showPanel("CV_UPLOAD"));
+		btnContactUs.addActionListener(e -> showPanel("CONTACT_US"));
 
 		if (isAdmin && btnAdmin != null) {
-			btnAdmin.addActionListener(e -> refreshAdminPanel());
+			btnAdmin.addActionListener(e -> {
+				refreshAdminPanel();
+				showPanel("ADMIN");
+			});
+		}
+
+		if (ThemeManager.isDarkMode()) {
+			ThemeManager.applyTheme(this);
+		}
+	}
+
+	private void showPanel(String cardName) {
+		cardLayout.show(mainContentPanel, cardName);
+		if (ThemeManager.isDarkMode()) {
+			ThemeManager.applyTheme(this);
 		}
 	}
 
@@ -199,12 +212,9 @@ public class MainDashboard extends JFrame {
 
 	private void refreshAdminPanel() {
 		mainContentPanel.add(createAdminPanel(), "ADMIN");
-		cardLayout.show(mainContentPanel, "ADMIN");
+		showPanel("ADMIN");
 	}
 
-	// ==========================================
-	// ⚙️ EXCLUSIVE ADMIN PANEL
-	// ==========================================
 	private JPanel createAdminPanel() {
 		JTabbedPane adminTabs = new JTabbedPane();
 		adminTabs.setFont(new Font("SansSerif", Font.BOLD, 13));
@@ -221,7 +231,6 @@ public class MainDashboard extends JFrame {
 		return container;
 	}
 
-	// --- Admin Sub-Tab 1: Manage Events ---
 	private JPanel createAdminEventsTab() {
 		JPanel panel = new JPanel(new BorderLayout(10, 10));
 		panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -317,10 +326,12 @@ public class MainDashboard extends JFrame {
 
 		dialog.add(form, BorderLayout.CENTER);
 		dialog.add(saveBtn, BorderLayout.SOUTH);
+		if (ThemeManager.isDarkMode()) {
+			ThemeManager.applyTheme(dialog);
+		}
 		dialog.setVisible(true);
 	}
 
-	// --- Admin Sub-Tab 2: Manage Registered Users ---
 	private JPanel createAdminUsersTab() {
 		JPanel panel = new JPanel(new BorderLayout(10, 10));
 		panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -351,7 +362,9 @@ public class MainDashboard extends JFrame {
 					}
 				}
 			} catch (IOException ex) {
-				ex.printStackTrace();
+				System.err.println("Error loading registered users: " + ex.getMessage());
+				JOptionPane.showMessageDialog(panel, "Could not load registered users: " + ex.getMessage(),
+						"Error", JOptionPane.ERROR_MESSAGE);
 			}
 		}
 
@@ -378,8 +391,12 @@ public class MainDashboard extends JFrame {
 						"Confirm User Deletion", JOptionPane.YES_NO_OPTION);
 
 				if (confirm == JOptionPane.YES_OPTION) {
-					deleteUserFromCSV(targetUser);
-					JOptionPane.showMessageDialog(panel, "User '" + targetUser + "' deleted successfully!");
+					if (deleteUserFromCSV(targetUser)) {
+						JOptionPane.showMessageDialog(panel, "User '" + targetUser + "' deleted successfully!");
+					} else {
+						JOptionPane.showMessageDialog(panel, "Failed to delete user '" + targetUser + "'.", "Error",
+								JOptionPane.ERROR_MESSAGE);
+					}
 					refreshAdminPanel();
 				}
 			} else {
@@ -395,8 +412,11 @@ public class MainDashboard extends JFrame {
 		return panel;
 	}
 
-	private void deleteUserFromCSV(String usernameToDelete) {
+	private static synchronized boolean deleteUserFromCSV(String usernameToDelete) {
 		File inputFile = new File("alumni_users.csv");
+		if (!inputFile.exists() || usernameToDelete == null) {
+			return false;
+		}
 		File tempFile = new File("alumni_users_temp.csv");
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(inputFile));
@@ -405,21 +425,25 @@ public class MainDashboard extends JFrame {
 			String currentLine;
 			while ((currentLine = reader.readLine()) != null) {
 				String[] parts = currentLine.split(",", -1);
-				if (parts[0].trim().equalsIgnoreCase(usernameToDelete.trim())) {
+				if (parts.length > 0 && parts[0].trim().equalsIgnoreCase(usernameToDelete.trim())) {
 					continue;
 				}
 				writer.write(currentLine + System.lineSeparator());
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
+			System.err.println("Error deleting user from CSV: " + e.getMessage());
+			tempFile.delete();
+			return false;
 		}
 
 		if (inputFile.delete()) {
-			tempFile.renameTo(inputFile);
+			return tempFile.renameTo(inputFile);
 		}
+		System.err.println("Error deleting user from CSV: could not remove original file.");
+		tempFile.delete();
+		return false;
 	}
 
-	// --- Admin Sub-Tab 3: Moderate Newsfeed Posts ---
 	private JPanel createAdminPostsTab() {
 		JPanel panel = new JPanel(new BorderLayout(10, 10));
 		panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -469,7 +493,6 @@ public class MainDashboard extends JFrame {
 		return panel;
 	}
 
-	// --- Admin Sub-Tab 4: Manage Notices ---
 	private JPanel createAdminNoticesTab() {
 		JPanel panel = new JPanel(new BorderLayout(10, 10));
 		panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -490,9 +513,9 @@ public class MainDashboard extends JFrame {
 		JTable table = new JTable(model);
 		table.setRowHeight(28);
 
-		JButton addBtn = new JButton("➕ Post Notice");
-		JButton editBtn = new JButton("✏️ Edit Notice");
-		JButton deleteBtn = new JButton("🗑️ Delete Notice");
+		JButton addBtn = new JButton(" Post Notice");
+		JButton editBtn = new JButton(" Edit Notice");
+		JButton deleteBtn = new JButton(" Delete Notice");
 		deleteBtn.setBackground(new Color(220, 53, 69));
 		deleteBtn.setForeground(Color.WHITE);
 
@@ -550,8 +573,6 @@ public class MainDashboard extends JFrame {
 		return panel;
 	}
 
-	// 0. Own Profile Panel
-	// 0. Own Profile Panel with Photo Upload Option
 	private JPanel createProfilePanel() {
 		JPanel outerPanel = new JPanel(new BorderLayout(15, 15));
 		outerPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
@@ -576,7 +597,6 @@ public class MainDashboard extends JFrame {
 				? (userRecord[10].trim() + " • " + userRecord[11].trim())
 				: "Alumnus";
 
-		// Check if user has uploaded a custom profile photo
 		String photoPath = (userRecord != null && userRecord.length >= 17) ? userRecord[16].trim() : "";
 		JLabel avatarLabel = createAvatarLabel(photoPath, 100, 100);
 		avatarLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -608,7 +628,7 @@ public class MainDashboard extends JFrame {
 					if (accountManager.updateProfilePhoto(currentUsername, targetFile.getPath())) {
 						JOptionPane.showMessageDialog(outerPanel, "Profile photo updated!");
 						mainContentPanel.add(createProfilePanel(), "PROFILE");
-						cardLayout.show(mainContentPanel, "PROFILE");
+						showPanel("PROFILE");
 					}
 				} catch (IOException ex) {
 					JOptionPane.showMessageDialog(outerPanel, "Failed to upload image: " + ex.getMessage(), "Error",
@@ -672,7 +692,6 @@ public class MainDashboard extends JFrame {
 		return avatarLabel;
 	}
 
-	// 1. News Feed Panel
 	private JPanel createFeedPanel() {
 		JPanel panel = new JPanel(new BorderLayout(10, 10));
 		panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -698,7 +717,7 @@ public class MainDashboard extends JFrame {
 				String postId = post[0];
 				String author = post[1];
 				String content = post[2];
-				int likes = post.length > 3 ? Integer.parseInt(post[3]) : 0;
+				int likes = parseLikesCount(post.length > 3 ? post[3] : "0");
 				String timestamp = post.length > 4 ? post[4] : "";
 
 				feedList.add(createPostWidget(postId, author, content, likes, timestamp, () -> {
@@ -709,16 +728,22 @@ public class MainDashboard extends JFrame {
 						String pId = p[0];
 						String pAuthor = p[1];
 						String pContent = p[2];
-						int pLikes = p.length > 3 ? Integer.parseInt(p[3]) : 0;
+						int pLikes = parseLikesCount(p.length > 3 ? p[3] : "0");
 						String pTimestamp = p.length > 4 ? p[4] : "";
 
 						feedList.add(createPostWidget(pId, pAuthor, pContent, pLikes, pTimestamp, null));
 						feedList.add(Box.createVerticalStrut(12));
 					}
+					if (ThemeManager.isDarkMode()) {
+						ThemeManager.applyTheme(feedList);
+					}
 					feedList.revalidate();
 					feedList.repaint();
 				}));
 				feedList.add(Box.createVerticalStrut(12));
+			}
+			if (ThemeManager.isDarkMode()) {
+				ThemeManager.applyTheme(feedList);
 			}
 			feedList.revalidate();
 			feedList.repaint();
@@ -744,6 +769,14 @@ public class MainDashboard extends JFrame {
 		panel.add(createPostPanel, BorderLayout.NORTH);
 		panel.add(scrollPane, BorderLayout.CENTER);
 		return panel;
+	}
+
+	private int parseLikesCount(String rawValue) {
+		try {
+			return Integer.parseInt(rawValue.trim());
+		} catch (NumberFormatException ex) {
+			return 0;
+		}
 	}
 
 	private void renderCommentTree(String postId, String parentId, List<String[]> allComments, JPanel container,
@@ -889,14 +922,15 @@ public class MainDashboard extends JFrame {
 		actionPanel.setOpaque(false);
 
 		boolean likedByMe = FeedManager.hasUserLikedPost(postId, currentUsername);
-		JButton likeBtn = new JButton((likedByMe ? "❤️ Liked (" : "🤍 Like (") + initialLikes + ")");
+		JButton likeBtn = new JButton((likedByMe ? " Liked (" : " Like (") + initialLikes + ")");
 		likeBtn.setFocusPainted(false);
 
 		likeBtn.addActionListener(e -> {
 			boolean isLiked = FeedManager.hasUserLikedPost(postId, currentUsername);
 			FeedManager.toggleLikePost(postId, currentUsername, !isLiked);
-			int newLikes = isLiked ? initialLikes - 1 : initialLikes + 1;
-			likeBtn.setText((!isLiked ? "❤️ Liked (" : "🤍 Like (") + newLikes + ")");
+			if (onDeleteCallback != null) {
+				onDeleteCallback.run();
+			}
 		});
 
 		actionPanel.add(likeBtn);
@@ -911,6 +945,9 @@ public class MainDashboard extends JFrame {
 				commentsPanel.removeAll();
 				List<String[]> allComments = FeedManager.loadCommentsForPost(postId);
 				renderCommentTree(postId, "null", allComments, commentsPanel, 0, this);
+				if (ThemeManager.isDarkMode()) {
+					ThemeManager.applyTheme(commentsPanel);
+				}
 				commentsPanel.revalidate();
 				commentsPanel.repaint();
 			}
@@ -952,7 +989,6 @@ public class MainDashboard extends JFrame {
 		return postCard;
 	}
 
-	// 2. Events Panel (Accessible by Anyone to View/Post)
 	private JPanel createEventsPanel() {
 		JPanel panel = new JPanel(new BorderLayout(10, 10));
 		panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -1046,7 +1082,7 @@ public class MainDashboard extends JFrame {
 				dialog.dispose();
 
 				mainContentPanel.add(createEventsPanel(), "EVENTS");
-				cardLayout.show(mainContentPanel, "EVENTS");
+				showPanel("EVENTS");
 			} else {
 				JOptionPane.showMessageDialog(dialog, "Please fill in all required fields.", "Warning",
 						JOptionPane.WARNING_MESSAGE);
@@ -1055,6 +1091,9 @@ public class MainDashboard extends JFrame {
 
 		dialog.add(formPanel, BorderLayout.CENTER);
 		dialog.add(submitBtn, BorderLayout.SOUTH);
+		if (ThemeManager.isDarkMode()) {
+			ThemeManager.applyTheme(dialog);
+		}
 		dialog.setVisible(true);
 	}
 
@@ -1086,7 +1125,6 @@ public class MainDashboard extends JFrame {
 		descArea.setEditable(false);
 		descArea.setLineWrap(true);
 		descArea.setWrapStyleWord(true);
-		descArea.setBackground(new Color(245, 247, 250));
 		descArea.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
 		JPanel centerPanel = new JPanel(new BorderLayout(10, 10));
@@ -1117,7 +1155,7 @@ public class MainDashboard extends JFrame {
 					JOptionPane.showMessageDialog(dialog, "Event deleted.");
 					dialog.dispose();
 					mainContentPanel.add(createEventsPanel(), "EVENTS");
-					cardLayout.show(mainContentPanel, "EVENTS");
+					showPanel("EVENTS");
 				}
 			});
 
@@ -1133,10 +1171,13 @@ public class MainDashboard extends JFrame {
 		dialog.add(centerPanel, BorderLayout.CENTER);
 		dialog.add(footer, BorderLayout.SOUTH);
 
+		if (ThemeManager.isDarkMode()) {
+			ThemeManager.applyTheme(dialog);
+		}
+
 		dialog.setVisible(true);
 	}
 
-	// 3. Alumni Members Directory
 	private JPanel createMembersPanel() {
 		JPanel panel = new JPanel(new BorderLayout(10, 10));
 		panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -1162,16 +1203,18 @@ public class MainDashboard extends JFrame {
 					}
 
 					String[] parts = line.split(",", -1);
-					if (parts.length >= 13) {
+					if (parts.length >= 14) {
 						fullRecords.add(parts);
 
 						String fullName = parts[2].trim() + " " + parts[3].trim();
 						tableDataList.add(new Object[] { fullName, parts[8].trim(), parts[9].trim(), parts[6].trim(),
-								parts[10].trim(), parts[12].trim() });
+								parts[10].trim(), parts[13].trim() });
 					}
 				}
 			} catch (IOException e) {
 				System.err.println("Error reading alumni directory: " + e.getMessage());
+				JOptionPane.showMessageDialog(panel, "Could not load the alumni directory: " + e.getMessage(),
+						"Error", JOptionPane.ERROR_MESSAGE);
 			}
 		}
 
@@ -1245,7 +1288,7 @@ public class MainDashboard extends JFrame {
 		addDetailRow(bodyPanel, "Department:", user[8].trim());
 		addDetailRow(bodyPanel, "Major:", user[9].trim());
 		addDetailRow(bodyPanel, "Batch:", user[6].trim());
-		addDetailRow(bodyPanel, "Country:", user[12].trim());
+		addDetailRow(bodyPanel, "Country:", user[13].trim());
 		addDetailRow(bodyPanel, "Email:", user[5].trim());
 		addDetailRow(bodyPanel, "Mobile:", user[4].trim());
 
@@ -1261,6 +1304,10 @@ public class MainDashboard extends JFrame {
 		dialog.add(bodyPanel, BorderLayout.CENTER);
 		dialog.add(footerPanel, BorderLayout.SOUTH);
 
+		if (ThemeManager.isDarkMode()) {
+			ThemeManager.applyTheme(dialog);
+		}
+
 		dialog.setResizable(false);
 		dialog.setVisible(true);
 	}
@@ -1268,7 +1315,7 @@ public class MainDashboard extends JFrame {
 	private void addDetailRow(JPanel container, String title, String value) {
 		JLabel lblTitle = new JLabel(title);
 		lblTitle.setFont(new Font("SansSerif", Font.BOLD, 12));
-		lblTitle.setForeground(new Color(100, 100, 100));
+		lblTitle.setForeground(ThemeManager.isDarkMode() ? ThemeManager.DARK_TEXT : new Color(100, 100, 100));
 
 		JLabel lblValue = new JLabel(value.isEmpty() ? "N/A" : value);
 		lblValue.setFont(new Font("SansSerif", Font.PLAIN, 13));
@@ -1277,7 +1324,6 @@ public class MainDashboard extends JFrame {
 		container.add(lblValue);
 	}
 
-	// 4. Messaging Panel
 	private JPanel createMessagingPanel() {
 		JPanel panel = new JPanel(new GridBagLayout());
 		panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -1296,8 +1342,10 @@ public class MainDashboard extends JFrame {
 
 		openChatBtn.addActionListener(e -> {
 			chatbox chat = new chatbox(currentUsername, null);
-			
 			chat.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+			if (ThemeManager.isDarkMode()) {
+				ThemeManager.applyTheme(chat);
+			}
 			chat.setVisible(true);
 		});
 
@@ -1308,7 +1356,6 @@ public class MainDashboard extends JFrame {
 		return panel;
 	}
 
-	// 5. Notice Board Panel
 	private JPanel createNoticeBoardPanel() {
 		JPanel panel = new JPanel(new BorderLayout(10, 10));
 		panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -1328,7 +1375,7 @@ public class MainDashboard extends JFrame {
 					NoticeManager.saveNotice(newNotice.trim(), currentUsername);
 					JOptionPane.showMessageDialog(panel, "Notice published!");
 					mainContentPanel.add(createNoticeBoardPanel(), "NOTICES");
-					cardLayout.show(mainContentPanel, "NOTICES");
+					showPanel("NOTICES");
 				}
 			});
 			header.add(postNoticeBtn, BorderLayout.EAST);
@@ -1353,7 +1400,6 @@ public class MainDashboard extends JFrame {
 		return panel;
 	}
 
-	// 6. CV / Resume Upload Panel
 	private JPanel createCvUploadPanel() {
 		JPanel panel = new JPanel(new GridBagLayout());
 		panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
@@ -1427,7 +1473,6 @@ public class MainDashboard extends JFrame {
 		return panel;
 	}
 
-	// 7. Contact Us Panel
 	private JPanel createContactUsPanel() {
 		JPanel panel = new JPanel(new GridBagLayout());
 		panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
@@ -1481,9 +1526,16 @@ public class MainDashboard extends JFrame {
 			@Override
 			public void mouseClicked(MouseEvent e) {
 				try {
+					if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+						JOptionPane.showMessageDialog(linkLabel, "Unable to open a browser on this system.", "Error",
+								JOptionPane.ERROR_MESSAGE);
+						return;
+					}
 					Desktop.getDesktop().browse(new URI(targetUrl));
 				} catch (Exception ex) {
-					ex.printStackTrace();
+					System.err.println("Error opening link '" + targetUrl + "': " + ex.getMessage());
+					JOptionPane.showMessageDialog(linkLabel, "Could not open the link: " + ex.getMessage(), "Error",
+							JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		});
@@ -1492,4 +1544,5 @@ public class MainDashboard extends JFrame {
 		row.add(linkLabel);
 		return row;
 	}
+	
 }

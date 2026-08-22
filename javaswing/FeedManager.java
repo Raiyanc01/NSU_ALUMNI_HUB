@@ -65,6 +65,7 @@ public class FeedManager {
     public static synchronized void deletePost(String postId) {
         deleteFromCsv(POSTS_FILE, 0, postId);
         deleteFromCsv(COMMENTS_FILE, 0, postId);
+        deleteFromCsv(LIKES_FILE, 0, postId);
     }
 
     public static synchronized boolean hasUserLikedPost(String postId, String username) {
@@ -86,18 +87,52 @@ public class FeedManager {
     }
 
     public static synchronized void toggleLikePost(String postId, String username, boolean shouldLike) {
-        if (shouldLike) {
-            try {
-                File file = new File(LIKES_FILE);
-                if (!file.exists()) file.createNewFile();
-                String line = postId + "," + username + System.lineSeparator();
-                Files.write(file.toPath(), line.getBytes(), StandardOpenOption.APPEND);
-            } catch (IOException e) {
-                System.err.println("Error liking post: " + e.getMessage());
+        File likesFile = new File(LIKES_FILE);
+        try {
+            if (!likesFile.exists()) likesFile.createNewFile();
+
+            if (shouldLike) {
+                if (!hasUserLikedPost(postId, username)) {
+                    String line = postId + "," + username + System.lineSeparator();
+                    Files.write(likesFile.toPath(), line.getBytes(), StandardOpenOption.APPEND);
+                    updatePostLikeCount(postId, 1);
+                }
+            } else {
+                List<String> lines = Files.readAllLines(likesFile.toPath());
+                List<String> remaining = new ArrayList<>();
+                boolean removed = false;
+
+                for (String line : lines) {
+                    String[] parts = line.split(",");
+                    if (!removed && parts.length >= 2 && parts[0].equals(postId) && parts[1].equals(username)) {
+                        removed = true;
+                        continue;
+                    }
+                    remaining.add(line);
+                }
+
+                if (removed) {
+                    Files.write(likesFile.toPath(), remaining);
+                    updatePostLikeCount(postId, -1);
+                }
             }
-        } else {
-            deleteFromCsv(LIKES_FILE, 0, postId);
+        } catch (IOException e) {
+            System.err.println("Error toggling post like: " + e.getMessage());
         }
+    }
+
+    private static void updatePostLikeCount(String postId, int delta) {
+        modifyCsvFile(POSTS_FILE, 0, postId, row -> {
+            if (row.length >= 4) {
+                try {
+                    int currentLikes = Integer.parseInt(row[3].trim());
+                    row[3] = String.valueOf(Math.max(0, currentLikes + delta));
+                } catch (NumberFormatException e) {
+                    row[3] = delta > 0 ? "1" : "0";
+                }
+            }
+            return row;
+        });
     }
 
     public static synchronized List<String[]> loadCommentsForPost(String postId) {

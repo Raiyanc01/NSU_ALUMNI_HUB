@@ -13,12 +13,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
 public class accountManager {
     private static final String CSV_FILE = "alumni_users.csv";
     private static final String HEADER = "Username,Password,FirstName,LastName,Mobile,Email,SemesterBatch,NSUID,Department,Major,Profession,Designation,CompanyName,Country,SecurityQuestion,SecurityAnswer,ProfilePhoto";
+
+    // Password policy: min 8 chars, at least 1 upper, 1 lower, 1 digit, 1 special character
+    private static final int PASSWORD_MIN_LENGTH = 8;
+    private static final Pattern UPPERCASE_PATTERN = Pattern.compile("[A-Z]");
+    private static final Pattern LOWERCASE_PATTERN = Pattern.compile("[a-z]");
+    private static final Pattern DIGIT_PATTERN = Pattern.compile("[0-9]");
+    private static final Pattern SPECIAL_CHAR_PATTERN = Pattern.compile("[^a-zA-Z0-9]");
+    
+    // Mobile number policy: exactly 11 digits
+    private static final Pattern MOBILE_PATTERN = Pattern.compile("^[0-9]{11}$");
 
     private static final int ITERATIONS = 65536;
     private static final int KEY_LENGTH = 256;
@@ -37,15 +48,63 @@ public class accountManager {
         File file = new File(CSV_FILE);
         if (!file.exists()) {
             try {
+                File parent = file.getParentFile();
+                if (parent != null && !parent.exists()) {
+                    parent.mkdirs();
+                }
                 file.createNewFile();
                 Files.write(file.toPath(), (HEADER + System.lineSeparator()).getBytes());
-                registerUser("Raiyan", "1234", "Raiyan", "Choudhury", "+8801611177123", "raiyan.choudhury.253@northsouth.edu",
+                registerUser("Raiyan", "Passw0rd!", "Raiyan", "Choudhury", "01611177123", "raiyan.choudhury.253@northsouth.edu",
                         "FALL 2025", "2531141042", "ECE", "CSE", "Software Engineer", "Junior Developer", "RC Tech Crop.",
                         "Bangladesh", "What is your primary school name?", "Gregory", "");
             } catch (IOException e) {
                 System.err.println("Error creating CSV storage: " + e.getMessage());
+            } catch (Exception e) {
+                System.err.println("Unexpected error initializing storage: " + e.getMessage());
             }
         }
+    }
+
+    /**
+     * Validates that the phone number contains exactly 11 digits.
+     */
+    public static String validateMobileNumber(String mobile) {
+        if (mobile == null || mobile.trim().isEmpty()) {
+            return "Mobile number is required.";
+        }
+        if (!MOBILE_PATTERN.matcher(mobile.trim()).matches()) {
+            return "Mobile number must be exactly 11 digits.";
+        }
+        return null;
+    }
+
+    /**
+     * Validates password strength.
+     */
+    public static String validatePasswordStrength(String password) {
+        if (password == null || password.isEmpty()) {
+            return "Password is required.";
+        }
+        if (password.length() < PASSWORD_MIN_LENGTH) {
+            return "Password must be at least " + PASSWORD_MIN_LENGTH + " characters long.";
+        }
+        if (!UPPERCASE_PATTERN.matcher(password).find()) {
+            return "Password must contain at least one uppercase letter.";
+        }
+        if (!LOWERCASE_PATTERN.matcher(password).find()) {
+            return "Password must contain at least one lowercase letter.";
+        }
+        if (!DIGIT_PATTERN.matcher(password).find()) {
+            return "Password must contain at least one number.";
+        }
+        if (!SPECIAL_CHAR_PATTERN.matcher(password).find()) {
+            return "Password must contain at least one special character (e.g. !@#$%).";
+        }
+        return null;
+    }
+
+    public static boolean isPasswordStrong(String password) {
+        return validatePasswordStrength(password) == null;
     }
 
     public static String[] getUserProfile(String username) {
@@ -62,6 +121,8 @@ public class accountManager {
             }
         } catch (IOException e) {
             System.err.println("Error reading CSV profile: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Unexpected error fetching profile: " + e.getMessage());
         }
         return null;
     }
@@ -100,6 +161,8 @@ public class accountManager {
             }
         } catch (IOException e) {
             System.err.println("Error updating profile photo: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Unexpected error updating profile photo: " + e.getMessage());
         }
         return false;
     }
@@ -118,6 +181,8 @@ public class accountManager {
             }
         } catch (IOException e) {
             System.err.println("Error reading security question: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Unexpected error reading security question: " + e.getMessage());
         }
         return null;
     }
@@ -127,22 +192,44 @@ public class accountManager {
             String profession, String designation, String companyName, String country, String securityQuestion,
             String securityAnswer, String profilePhotoPath) {
 
-        if (checkDuplicates(username, nsuId, mobile, email) != null) return false;
-
-        String hashedPassword = hashPassword(password);
-        if (hashedPassword == null) return false;
-
         try {
+            if (username == null || password == null || firstName == null || securityAnswer == null) {
+                throw new IllegalArgumentException("Required registration parameters cannot be null.");
+            }
+
+            if (validateMobileNumber(mobile) != null) return false;
+
+            if (checkDuplicates(username, nsuId, mobile, email) != null) return false;
+
+            if (!isPasswordStrong(password)) return false;
+
+            String hashedPassword = hashPassword(password);
+            if (hashedPassword == null) {
+                throw new SecurityException("Failed to safely generate password hash.");
+            }
+
             File file = new File(CSV_FILE);
+            File parentDir = file.getParentFile();
+            if (parentDir != null && !parentDir.exists()) {
+                parentDir.mkdirs();
+            }
+
             String csvLine = String.join(",", clean(username), clean(hashedPassword), clean(firstName), clean(lastName),
                     clean(mobile), clean(email), clean(semesterBatch), clean(nsuId), clean(department), clean(major),
                     clean(profession), clean(designation), clean(companyName), clean(country), clean(securityQuestion),
                     clean(securityAnswer.toLowerCase()), clean(profilePhotoPath)) + System.lineSeparator();
 
-            Files.write(file.toPath(), csvLine.getBytes(), StandardOpenOption.APPEND);
+            Files.write(file.toPath(), csvLine.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
             return true;
+
         } catch (IOException e) {
-            System.err.println("Error writing to CSV: " + e.getMessage());
+            System.err.println("I/O Error writing user to CSV: " + e.getMessage());
+            return false;
+        } catch (IllegalArgumentException | SecurityException e) {
+            System.err.println("Registration validation/security error: " + e.getMessage());
+            return false;
+        } catch (Exception e) {
+            System.err.println("Unexpected registration exception: " + e.getMessage());
             return false;
         }
     }
@@ -150,6 +237,7 @@ public class accountManager {
     public static synchronized boolean resetPasswordWithSecurityAnswer(String username, String answer, String newPassword) {
         File file = new File(CSV_FILE);
         if (!file.exists()) return false;
+        if (!isPasswordStrong(newPassword)) return false;
 
         try {
             List<String> lines = Files.readAllLines(file.toPath());
@@ -181,11 +269,14 @@ public class accountManager {
             }
         } catch (IOException e) {
             System.err.println("Error resetting password: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Unexpected error during password reset: " + e.getMessage());
         }
         return false;
     }
 
     public static boolean isAccountLocked(String username) {
+        if (username == null) return false;
         AccountLockoutInfo info = lockoutTracker.get(username);
         if (info == null) return false;
 
@@ -201,6 +292,7 @@ public class accountManager {
     }
 
     public static long getRemainingLockoutMinutes(String username) {
+        if (username == null) return 0;
         AccountLockoutInfo info = lockoutTracker.get(username);
         if (info == null) return 0;
 
@@ -217,23 +309,26 @@ public class accountManager {
             for (int i = 1; i < lines.size(); i++) {
                 String[] parts = lines.get(i).split(",", -1);
                 if (parts.length >= 14) {
-                    if (!username.isEmpty() && parts[0].trim().equalsIgnoreCase(username.trim()))
+                    if (username != null && !username.isEmpty() && parts[0].trim().equalsIgnoreCase(username.trim()))
                         return "Username '" + username + "' is already taken!";
-                    if (!nsuId.isEmpty() && parts[7].trim().equalsIgnoreCase(nsuId.trim()))
+                    if (nsuId != null && !nsuId.isEmpty() && parts[7].trim().equalsIgnoreCase(nsuId.trim()))
                         return "An account with NSU ID '" + nsuId + "' already exists!";
-                    if (!mobile.isEmpty() && parts[4].trim().equals(mobile.trim()))
+                    if (mobile != null && !mobile.isEmpty() && parts[4].trim().equals(mobile.trim()))
                         return "Mobile number '" + mobile + "' is already registered!";
-                    if (!email.isEmpty() && parts[5].trim().equalsIgnoreCase(email.trim()))
+                    if (email != null && !email.isEmpty() && parts[5].trim().equalsIgnoreCase(email.trim()))
                         return "Email address '" + email + "' is already registered!";
                 }
             }
         } catch (IOException e) {
             System.err.println("Error checking duplicates: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Unexpected error during duplicate check: " + e.getMessage());
         }
         return null;
     }
 
     public static boolean authenticate(String username, String rawPassword) {
+        if (username == null || rawPassword == null) return false;
         if (isAccountLocked(username)) return false;
 
         Map<String, String> users = loadUserPasswords();
@@ -269,6 +364,8 @@ public class accountManager {
             }
         } catch (IOException e) {
             System.err.println("Error reading user credentials: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Unexpected error loading user credentials: " + e.getMessage());
         }
         return users;
     }
@@ -285,19 +382,23 @@ public class accountManager {
             byte[] hash = pbkdf2(password.toCharArray(), salt, ITERATIONS, KEY_LENGTH);
             return Base64.getEncoder().encodeToString(salt) + ":" + Base64.getEncoder().encodeToString(hash);
         } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
-            e.printStackTrace();
+            System.err.println("Error hashing password: " + e.getMessage());
+            return null;
+        } catch (Exception e) {
+            System.err.println("Unexpected error during password hashing: " + e.getMessage());
             return null;
         }
     }
 
     private static boolean verifyPassword(String password, String storedHash) {
+        if (password == null || storedHash == null) return false;
         String[] parts = storedHash.split(":");
         if (parts.length != 2) return false;
 
-        byte[] salt = Base64.getDecoder().decode(parts[0]);
-        byte[] expectedHash = Base64.getDecoder().decode(parts[1]);
-
         try {
+            byte[] salt = Base64.getDecoder().decode(parts[0]);
+            byte[] expectedHash = Base64.getDecoder().decode(parts[1]);
+
             byte[] actualHash = pbkdf2(password.toCharArray(), salt, ITERATIONS, KEY_LENGTH);
             int diff = expectedHash.length ^ actualHash.length;
             for (int i = 0; i < expectedHash.length && i < actualHash.length; i++) {
@@ -305,7 +406,13 @@ public class accountManager {
             }
             return diff == 0;
         } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
-            e.printStackTrace();
+            System.err.println("Error verifying password: " + e.getMessage());
+            return false;
+        } catch (IllegalArgumentException e) {
+            System.err.println("Base64 decoding error during password verification: " + e.getMessage());
+            return false;
+        } catch (Exception e) {
+            System.err.println("Unexpected error during password verification: " + e.getMessage());
             return false;
         }
     }

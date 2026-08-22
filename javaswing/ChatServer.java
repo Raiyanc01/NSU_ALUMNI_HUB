@@ -55,9 +55,17 @@ public class ChatServer {
                 // Read register command/username first
                 String registerMsg = in.readLine();
                 if (registerMsg != null && registerMsg.startsWith("REGISTER:")) {
-                    this.username = registerMsg.substring(9).trim();
-                    activeClients.put(this.username, this);
-                    System.out.println("User registered: " + this.username);
+                    String candidate = registerMsg.substring(9).trim();
+                    if (!candidate.isEmpty()) {
+                        this.username = candidate;
+                        activeClients.put(this.username, this);
+                        System.out.println("User registered: " + this.username);
+                    }
+                }
+
+                if (this.username == null) {
+                    sendMessage("SYSTEM: Registration failed; closing connection.");
+                    return;
                 }
 
                 String message;
